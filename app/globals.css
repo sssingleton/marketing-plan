@@ -78,13 +78,6 @@ kbd {
   color: var(--cake-white);
 }
 
-/* Dark mode defaults */
-@media (prefers-color-scheme: dark) {
-  body {
-    @apply dark;
-  }
-}
-
 /* Smooth transitions on interactive elements */
 button,
 a,
