@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 import { supabase, getSupabaseAdmin } from '@/lib/supabase';
 import { decrypt } from '@/lib/encryption';
+import { buildTimingBlock, slotDate } from '@/lib/timing';
 
 const MAX_SLOTS_PER_REQUEST = 100;
 const BATCH_SIZE = 5;
@@ -20,6 +21,8 @@ export async function POST(request) {
       archetype,
       release_title,
       campaign_goal,
+      release_date,
+      custom_moments,
       api_key: byokApiKey,
     } = body;
 
@@ -137,7 +140,11 @@ export async function POST(request) {
 
     // System prompt for Claude
     const systemPrompt =
-      'You are an elite music marketing strategist. Generate specific, actionable social media content ideas for artists. Be bold, creative, and platform-native. Never be generic.';
+      "You are an elite music marketing strategist. Generate specific, actionable social media content ideas for artists. Be bold, creative, and platform-native. Never be generic. The artist's personality and overall content are always your number one factor. Seasonal and event timing is a secondary factor: it can shape when a post goes out and the angle it takes, but it never overrides the artist's personality or pushes off-brand content.";
+
+    const timingOptions = {
+      customMoments: Array.isArray(custom_moments) ? custom_moments : [],
+    };
 
     // Process slots in parallel batches
     const results = [];
@@ -151,7 +158,9 @@ export async function POST(request) {
           artist_name,
           archetype,
           release_title,
-          campaign_goal
+          campaign_goal,
+          release_date,
+          timingOptions
         )
       );
 
@@ -179,7 +188,9 @@ async function generateSlotContent(
   artist_name,
   archetype,
   release_title,
-  campaign_goal
+  campaign_goal,
+  release_date,
+  timingOptions
 ) {
   const { day, platform, content_type } = slot;
 
@@ -195,13 +206,19 @@ async function generateSlotContent(
       };
     }
 
-    // Construct user prompt
+    // Timing is a secondary factor; empty when there's no release date
+    const postDate = slotDate(release_date, day);
+    const timingBlock = postDate ? buildTimingBlock(postDate, timingOptions) : '';
+
+    // Construct user prompt. Artist personality first, timing after.
     const userPrompt = `Generate a ${content_type} for ${platform} for the artist "${artist_name}" (archetype: ${archetype}).
+
+Primary factor: the artist's personality and overall content. Everything starts from who ${artist_name} is (archetype: ${archetype}).
 
 Release: "${release_title}"
 Campaign Goal: ${campaign_goal}
 Day Offset: ${day} days from launch
-
+${timingBlock ? `\n${timingBlock}\n` : ''}
 Create specific, actionable content that's native to ${platform}. Include hashtags if appropriate. Make it bold and creative.`;
 
     const message = await client.messages.create({

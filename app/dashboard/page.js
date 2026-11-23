@@ -142,6 +142,7 @@ export default function Dashboard() {
             artist_name: profile?.display_name || user?.user_metadata?.display_name || 'Artist',
             archetype: profile?.artist_archetype || 'The Creator',
             release_title: selectedRelease.title,
+            release_date: selectedRelease.release_date,
             campaign_goal: goalId,
           }),
         })
